@@ -46,6 +46,20 @@
 #endif
 
 
+static int64_t ngr_event_current_time()
+{
+    struct timeval tv;
+    int64_t ret;
+
+    gettimeofday(&tv, NULL);
+
+    ret  = (int64_t)tv.tv_sec * 1000;
+    ret += (int64_t)tv.tv_usec / 1000;
+
+    return ret;
+}
+
+
 ngr_event_t *ngr_event_new(int max_events)
 {
     ngr_event_t *ev;
@@ -168,7 +182,7 @@ ngr_event_timer_t *ngr_event_create_timer(ngr_event_t *ev, int64_t timeout,
     node->destroy = destroy; /* destroy data handler */
 
     rbtree_node_init(&node->timer);
-    node->timer.key = timeout;
+    node->timer.key = ngr_event_current_time() + timeout;
     node->timer.data = node;
 
     rbtree_insert(&ev->timer, &node->timer);
@@ -184,20 +198,6 @@ void ngr_event_del_timer(ngr_event_t *ev, ngr_event_timer_t *node)
         node->destroy(node->data);
     }
     free(node); /* free memory */
-}
-
-
-static int64_t ngr_event_current_time()
-{
-    struct timeval tv;
-    int64_t ret;
-
-    gettimeofday(&tv, NULL);
-
-    ret  = (int64_t)tv.tv_sec * 1000;
-    ret += (int64_t)tv.tv_usec / 1000;
-
-    return ret;
 }
 
 
@@ -218,13 +218,14 @@ static int ngr_event_process_timers(ngr_event_t *ev)
 
         if (min_node->key <= now) { /* timeout */
 
-            rbtree_delete(&ev->timer, min_node); /* remove from rbtree */
-
             timer = min_node->data;
             timeout = timer->handler(ev, timer->data);
 
+            rbtree_delete(&ev->timer, min_node); /* remove from rbtree */
+
             if (timeout > 0) { /* rebuild */
                 min_node->key = now + timeout;
+                min_node->data = timer;
                 rbtree_insert(&ev->timer, min_node);
 
             } else {
