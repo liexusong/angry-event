@@ -118,14 +118,18 @@ void ngr_event_destroy(ngr_event_t *ev)
 }
 
 
-void ngr_event_set_ioevent_timeout(ngr_event_node_t *node)
+static uint64_t ngr_event_ioevent_timeout_handler(ngr_event_t *ev, void *data)
 {
+    ngr_event_node_t *node = data;
+
     node->timeout = 1;
+
+    return 0;
 }
 
 
 ngr_event_node_t *ngr_event_create_ioevent(ngr_event_t *ev, int fd, int mask,
-    ngr_event_ioevent_handler *handler, void *data)
+    ngr_event_ioevent_handler *handler, void *data, uint64_t timeout)
 {
     ngr_event_node_t *node;
 
@@ -143,6 +147,11 @@ ngr_event_node_t *ngr_event_create_ioevent(ngr_event_t *ev, int fd, int mask,
     if (mask & NGR_EVENT_WRITABLE) node->rev_handler = handler;
 
     if (fd > ev->max_fd) ev->max_fd = fd;
+
+    if (timeout > 0) {
+        ngr_event_create_timer(ev, timeout, &ngr_event_ioevent_timeout_handler,
+            node, NULL);
+    }
 
     return node;
 }
@@ -289,6 +298,10 @@ int ngr_event_process_events(ngr_event_t *ev, int dont_wait)
 
     num_events = ngr_event_lib_poll(ev, tvp); /* waiting for event lib poll */
 
+    if (min_node != NULL) { /* process timer events */
+        processed += ngr_event_process_timers(ev);
+    }
+
     for (j = 0; j < num_events; j++) {
 
         ngr_event_node_t *node = &ev->events[ev->fired[j].fd];
@@ -307,10 +320,6 @@ int ngr_event_process_events(ngr_event_t *ev, int dont_wait)
         }
 
         processed++;
-    }
-
-    if (min_node != NULL) { /* process timer events */
-        processed += ngr_event_process_timers(ev);
     }
 
     return processed;

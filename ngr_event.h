@@ -39,12 +39,11 @@
 #define NGR_EVENT_WRITABLE  2
 
 typedef unsigned char ngr_uint8_t;
-
 typedef struct ngr_event_s ngr_event_t;
 
 typedef void ngr_event_ioevent_handler(ngr_event_t *ev, int fd, void *data,
     int mask);
-typedef uint32_t ngr_event_timer_handler(ngr_event_t *ev, void *data);
+typedef uint64_t ngr_event_timer_handler(ngr_event_t *ev, void *data);
 typedef void ngr_event_timer_destroy_handler(void *data);
 
 
@@ -85,7 +84,7 @@ struct ngr_event_s {
 
 ngr_event_t *ngr_event_new(int max_events);
 ngr_event_node_t *ngr_event_create_ioevent(ngr_event_t *ev, int fd, int mask,
-    ngr_event_ioevent_handler *handler, void *data);
+    ngr_event_ioevent_handler *handler, void *data, uint64_t timeout);
 void ngr_event_del_ioevent(ngr_event_t *ev, int fd, int mask);
 ngr_event_timer_t *ngr_event_create_timer(ngr_event_t *ev, int64_t timeout,
     ngr_event_timer_handler *handler, void *data,

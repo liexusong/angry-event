@@ -2,10 +2,10 @@
 #include <stdio.h>
 #include "ngr_event.h"
 
-uint32_t timer_handler(ngr_event_t *ev, void *data)
+uint64_t timer_handler(ngr_event_t *ev, void *data)
 {
     printf("This is timer called\n");
-    return 1000;
+    return 0;
 }
 
 int main(int argc, char *argv[])
