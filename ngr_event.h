@@ -40,6 +40,7 @@
 
 typedef unsigned char ngr_uint8_t;
 typedef struct ngr_event_s ngr_event_t;
+typedef struct ngr_event_timer_s ngr_event_timer_t;
 
 typedef void ngr_event_ioevent_handler(ngr_event_t *ev, int fd, void *data,
     int mask);
@@ -52,6 +53,8 @@ typedef struct ngr_event_node_s {
     ngr_event_ioevent_handler *rev_handler;
     ngr_event_ioevent_handler *wev_handler;
     void *data;
+    ngr_event_timer_t *timer;
+    ngr_uint8_t timer_set:1;
     ngr_uint8_t timeout:1;
 } ngr_event_node_t;
 
@@ -62,12 +65,12 @@ typedef struct ngr_event_fired_s {
 } ngr_event_fired_t;
 
 
-typedef struct ngr_event_timer_s {
+struct ngr_event_timer_s {
     ngr_event_timer_handler *handler;
     void *data;
     ngr_event_timer_destroy_handler *destroy;
     struct rbnode timer;
-} ngr_event_timer_t;
+};
 
 
 struct ngr_event_s {
@@ -83,7 +86,7 @@ struct ngr_event_s {
 
 
 ngr_event_t *ngr_event_new(int max_events);
-ngr_event_node_t *ngr_event_create_ioevent(ngr_event_t *ev, int fd, int mask,
+int ngr_event_create_ioevent(ngr_event_t *ev, int fd, int mask,
     ngr_event_ioevent_handler *handler, void *data, uint64_t timeout);
 void ngr_event_del_ioevent(ngr_event_t *ev, int fd, int mask);
 ngr_event_timer_t *ngr_event_create_timer(ngr_event_t *ev, int64_t timeout,

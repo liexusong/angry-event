@@ -69,7 +69,7 @@ ngr_event_t *ngr_event_new(int max_events)
         max_events = NGR_DEFAULT_EVENTS;
     }
 
-    ev = malloc(sizeof(*ev)); /* create event object */
+    ev = malloc(sizeof(*ev));
     if (ev == NULL) {
         return NULL;
     }
@@ -101,6 +101,7 @@ ngr_event_t *ngr_event_new(int max_events)
         return NULL;
     }
 
+    /* set all events to none */
     for (i = 0; i < ev->max_events; i++) {
         ev->events[i].mask = NGR_EVENT_NONE;
     }
@@ -118,30 +119,38 @@ void ngr_event_destroy(ngr_event_t *ev)
 }
 
 
+/*
+ * IO event was timeout, so set IO event timeout flag and delete timer event
+ */
 static uint64_t ngr_event_ioevent_timeout_handler(ngr_event_t *ev, void *data)
 {
     ngr_event_node_t *node = data;
 
     node->timeout = 1;
 
+    ngr_event_del_timer(ev, node->timer);
+    node->timer_set = 0;
+    node->timer = NULL;
+
     return 0;
 }
 
 
-ngr_event_node_t *ngr_event_create_ioevent(ngr_event_t *ev, int fd, int mask,
+int ngr_event_create_ioevent(ngr_event_t *ev, int fd, int mask,
     ngr_event_ioevent_handler *handler, void *data, uint64_t timeout)
 {
     ngr_event_node_t *node;
+    ngr_event_timer_t *timer;
 
-    if (fd >= ev->max_events) return NULL;
+    if (fd >= ev->max_events) return -1;
 
     /* add fd to event lib */
-    if (ngr_event_lib_add_event(ev, fd, mask) == -1) return NULL;
+    if (ngr_event_lib_add_event(ev, fd, mask) == -1) return -1;
 
     node = &ev->events[fd]; /* event node */
     node->mask |= mask;
     node->data = data;
-    node->timeout = 0;
+    node->timeout = 0;  /* listen new event, and old event timeout maybe miss */
 
     if (mask & NGR_EVENT_READABLE) node->rev_handler = handler;
     if (mask & NGR_EVENT_WRITABLE) node->rev_handler = handler;
@@ -149,11 +158,21 @@ ngr_event_node_t *ngr_event_create_ioevent(ngr_event_t *ev, int fd, int mask,
     if (fd > ev->max_fd) ev->max_fd = fd;
 
     if (timeout > 0) {
-        ngr_event_create_timer(ev, timeout, &ngr_event_ioevent_timeout_handler,
-            node, NULL);
+        if (node->timer_set) {
+            ngr_event_del_timer(ev, node->timer);
+            node->timer_set = 0;
+            node->timer = NULL;
+        }
+
+        timer = ngr_event_create_timer(ev, timeout,
+              &ngr_event_ioevent_timeout_handler, node, NULL);
+        if (timer) {
+            node->timer_set = 1;
+            node->timer = timer;
+        }
     }
 
-    return node;
+    return 0;
 }
 
 
@@ -338,3 +357,4 @@ void ngr_event_main_loop(ngr_event_t *ev)
         (void)ngr_event_process_events(ev, 0);
     }
 }
+
