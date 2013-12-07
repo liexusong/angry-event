@@ -5,7 +5,7 @@
 uint64_t timer_handler(ngr_event_t *ev, void *data)
 {
     printf("This is timer called\n");
-    return 0;
+    return 1000;
 }
 
 int main(int argc, char *argv[])

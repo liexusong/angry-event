@@ -128,7 +128,15 @@ static uint64_t ngr_event_ioevent_timeout_handler(ngr_event_t *ev, void *data)
 
     node->timeout = 1;
 
-    ngr_event_del_timer(ev, node->timer);
+    /*
+     * we don't delete this timer here,
+     * because ngr_event_process_timers() would delete it quick.
+     *
+     * ngr_event_del_timer(ev, node->timer); would not be called.
+     *
+     * set event node's timer to NULL, and set timer_set flag to zero,
+     * because we don't need this timer object.
+     */
     node->timer_set = 0;
     node->timer = NULL;
 
@@ -197,6 +205,14 @@ void ngr_event_del_ioevent(ngr_event_t *ev, int fd, int mask)
         for (j = ev->max_fd - 1; j >= 0; j--)
             if (ev->events[j].mask != NGR_EVENT_NONE) break;
         ev->max_fd = j;
+
+        /* the fd was no event to listen,
+         * so delete it's timeout timer. */
+        if (node->timer_set) {
+            ngr_event_del_timer(ev, node->timer);
+            node->timer_set = 0;
+            node->timer = NULL;
+        }
     }
 }
 
