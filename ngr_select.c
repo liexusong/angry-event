@@ -3,7 +3,7 @@
 #include <sys/select.h>
 
 struct ngr_event_lib_context {
-    fd_set rfds, wfds;
+    fd_set  rfds,  wfds;
     fd_set _rfds, _wfds;
 };
 
@@ -48,8 +48,8 @@ static int ngr_event_lib_poll(ngr_event_t *ev, struct timeval *tvp)
     struct ngr_event_lib_context *ctx = ev->ctx;
     int retval, j, numevents = 0;
 
-    memcpy(&ctx->_rfds, &ctx->rfds,sizeof(fd_set));
-    memcpy(&ctx->_wfds, &ctx->wfds,sizeof(fd_set));
+    memcpy(&ctx->_rfds, &ctx->rfds, sizeof(fd_set));
+    memcpy(&ctx->_wfds, &ctx->wfds, sizeof(fd_set));
 
     retval = select(ev->max_fd + 1, &ctx->_rfds, &ctx->_wfds, NULL, tvp);
 
@@ -64,6 +64,8 @@ static int ngr_event_lib_poll(ngr_event_t *ev, struct timeval *tvp)
                 mask |= NGR_EVENT_READABLE;
             if (node->mask & NGR_EVENT_WRITABLE && FD_ISSET(j, &ctx->_wfds))
                 mask |= NGR_EVENT_WRITABLE;
+
+            if (mask == 0) continue; /* !events */
 
             ev->fired[numevents].fd = j;
             ev->fired[numevents].mask = mask;

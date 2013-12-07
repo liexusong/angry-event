@@ -93,6 +93,7 @@ ngr_event_t *ngr_event_new(int max_events)
 
     rbtree_init(&ev->timer, &ev->sentinel); /* init timer */
 
+    /* init event lib */
     if (ngr_event_lib_init(ev) != 0) {
         free(ev->events);
         free(ev->fired);
@@ -110,10 +111,16 @@ ngr_event_t *ngr_event_new(int max_events)
 
 void ngr_event_destroy(ngr_event_t *ev)
 {
-    ngr_event_lib_free_context(ev);
-    free(ev->events);
-    free(ev->fired);
-    free(ev);
+    ngr_event_lib_free_context(ev); /* free the event lib context */
+    free(ev->events);               /* free events array */
+    free(ev->fired);                /* free fireds array */
+    free(ev);                       /* free event object */
+}
+
+
+void ngr_event_set_ioevent_timeout(ngr_event_node_t *node)
+{
+    node->timeout = 1;
 }
 
 
@@ -124,17 +131,16 @@ ngr_event_node_t *ngr_event_create_ioevent(ngr_event_t *ev, int fd, int mask,
 
     if (fd >= ev->max_events) return NULL;
 
-    node = &ev->events[fd];
+    /* add fd to event lib */
+    if (ngr_event_lib_add_event(ev, fd, mask) == -1) return NULL;
+
+    node = &ev->events[fd]; /* event node */
     node->mask |= mask;
     node->data = data;
     node->timeout = 0;
 
-    if (mask & NGR_EVENT_READABLE)
-        node->rev_handler = handler;
-    if (mask & NGR_EVENT_WRITABLE)
-        node->rev_handler = handler;
-
-    if (ngr_event_lib_add_event(ev, fd, mask) == -1) return NULL;
+    if (mask & NGR_EVENT_READABLE) node->rev_handler = handler;
+    if (mask & NGR_EVENT_WRITABLE) node->rev_handler = handler;
 
     if (fd > ev->max_fd) ev->max_fd = fd;
 
@@ -152,6 +158,9 @@ void ngr_event_del_ioevent(ngr_event_t *ev, int fd, int mask)
 
     if (node->mask == NGR_EVENT_NONE) return;
 
+    /* delete fd from event lib */
+    ngr_event_lib_del_event(ev, fd, mask);
+
     node->mask = node->mask & (~mask);
 
     if (fd == ev->max_fd && node->mask == NGR_EVENT_NONE) {
@@ -161,8 +170,6 @@ void ngr_event_del_ioevent(ngr_event_t *ev, int fd, int mask)
             if (ev->events[j].mask != NGR_EVENT_NONE) break;
         ev->max_fd = j;
     }
-
-    ngr_event_lib_del_event(ev, fd, mask);
 }
 
 
@@ -183,7 +190,7 @@ ngr_event_timer_t *ngr_event_create_timer(ngr_event_t *ev, int64_t timeout,
 
     rbtree_node_init(&node->timer);
     node->timer.key = ngr_event_current_time() + timeout;
-    node->timer.data = node;
+    node->timer.data = node; /* which timer belong to? */
 
     rbtree_insert(&ev->timer, &node->timer);
 
@@ -209,6 +216,7 @@ static int ngr_event_process_timers(ngr_event_t *ev)
     int processed = 0;
 
     while (1) {
+
         min_node = rbtree_min(&ev->timer); /* find the min timer node */
         if (min_node == NULL) {
             break;
@@ -221,16 +229,17 @@ static int ngr_event_process_timers(ngr_event_t *ev)
             timer = min_node->data;
             timeout = timer->handler(ev, timer->data);
 
-            rbtree_delete(&ev->timer, min_node); /* remove from rbtree */
+            rbtree_delete(&ev->timer, min_node);
 
-            if (timeout > 0) { /* rebuild */
-                min_node->key = now + timeout;
+            if (timeout > 0) {  /* rebuild */
+                min_node->key = ngr_event_current_time() + timeout;
                 min_node->data = timer;
                 rbtree_insert(&ev->timer, min_node);
 
             } else {
-                if (timer->destroy)
+                if (timer->destroy) {
                     timer->destroy(timer->data);
+                }
                 free(timer);
             }
 
@@ -278,7 +287,7 @@ int ngr_event_process_events(ngr_event_t *ev, int dont_wait)
         }
     }
 
-    num_events = ngr_event_lib_poll(ev, tvp);
+    num_events = ngr_event_lib_poll(ev, tvp); /* waiting for event lib poll */
 
     for (j = 0; j < num_events; j++) {
 
@@ -287,12 +296,12 @@ int ngr_event_process_events(ngr_event_t *ev, int dont_wait)
         int fd = ev->fired[j].fd;
         int rfired = 0;
 
-        if (node->mask & mask & NGR_EVENT_READABLE) { /* readable */
+        if (node->mask & (mask & NGR_EVENT_READABLE)) { /* readable */
             rfired = 1;
             node->rev_handler(ev, fd, node->data, mask);
         }
 
-        if (node->mask & mask & NGR_EVENT_WRITABLE) { /* writable */
+        if (node->mask & (mask & NGR_EVENT_WRITABLE)) { /* writable */
             if (!rfired || node->wev_handler != node->rev_handler)
                 node->wev_handler(ev, fd, node->data, mask);
         }
@@ -300,7 +309,7 @@ int ngr_event_process_events(ngr_event_t *ev, int dont_wait)
         processed++;
     }
 
-    if (min_node != NULL) { /* timer not empty */
+    if (min_node != NULL) { /* process timer events */
         processed += ngr_event_process_timers(ev);
     }
 

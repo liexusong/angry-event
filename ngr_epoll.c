@@ -54,6 +54,7 @@ static int ngr_event_lib_add_event(ngr_event_t *ev, int fd, int mask)
 
     ee.data.u64 = 0; /* avoid valgrind warning */
     ee.data.fd = fd;
+
     if (epoll_ctl(ctx->epfd, op, fd, &ee) == -1)
         return -1;
     return 0;
@@ -71,6 +72,7 @@ static void ngr_event_lib_del_event(ngr_event_t *ev, int fd, int delmask)
 
     ee.data.u64 = 0; /* avoid valgrind warning */
     ee.data.fd = fd;
+
     if (mask != NGR_EVENT_NONE) {
         epoll_ctl(ctx->epfd, EPOLL_CTL_MOD, fd, &ee);
     } else {

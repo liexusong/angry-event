@@ -49,6 +49,7 @@ static int ngr_event_lib_add_event(ngr_event_t *ev, int fd, int mask)
         EV_SET(&ke, fd, EVFILT_READ, EV_ADD, 0, 0, NULL);
         if (kevent(ctx->kqfd, &ke, 1, NULL, 0, NULL) == -1) return -1;
     }
+
     if (mask & NGR_EVENT_WRITABLE) {
         EV_SET(&ke, fd, EVFILT_WRITE, EV_ADD, 0, 0, NULL);
         if (kevent(ctx->kqfd, &ke, 1, NULL, 0, NULL) == -1) return -1;
@@ -65,6 +66,7 @@ static void ngr_event_lib_del_event(ngr_event_t *ev, int fd, int mask)
         EV_SET(&ke, fd, EVFILT_READ, EV_DELETE, 0, 0, NULL);
         kevent(ctx->kqfd, &ke, 1, NULL, 0, NULL);
     }
+
     if (mask & NGR_EVENT_WRITABLE) {
         EV_SET(&ke, fd, EVFILT_WRITE, EV_DELETE, 0, 0, NULL);
         kevent(ctx->kqfd, &ke, 1, NULL, 0, NULL);

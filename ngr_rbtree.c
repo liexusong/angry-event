@@ -1,5 +1,4 @@
 /*
- * twemproxy - A fast and lightweight proxy for memcached protocol.
  * Copyright (C) 2011 Twitter, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -181,7 +180,7 @@ rbtree_insert(struct rbtree *tree, struct rbnode *node)
                 rbtree_right_rotate(root, sentinel, node->parent->parent);
             }
 
-        } else { /* 对称操作 */
+        } else {
             temp = node->parent->parent->left;
 
             if (rbtree_is_red(temp)) {
