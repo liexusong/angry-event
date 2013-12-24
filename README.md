@@ -1,7 +1,7 @@
 Angry Event Library
 ===================
 
-在Redis的事件库上进行重构和优化, 使用红黑树管理定时器事件.
+Angry Event is a simple and easy to use event library. example:
 
 <pre>
 #include &lt;stdlib.h&gt;
@@ -23,7 +23,7 @@ int main(int argc, char *argv[])
     }
 
     ngr_event_create_timer(ev, 1000, &timer_handler, NULL, NULL);
-    ngr_event_main_loop(ev);
+    ngr_event_loop(ev);
     return 0;
 }
 </pre>
