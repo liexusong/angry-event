@@ -32,7 +32,16 @@
 
 #include "ngr_rbtree.h"
 
-#define NGR_DEFAULT_EVENTS 10240
+
+#if defined(__FreeBSD__)
+# define HAVE_KQUEUE   1
+#elif defined(linux)
+# define HAVE_EPOLL    1
+#endif
+
+
+#define NGR_DEFAULT_EVENTS     10240
+#define NGR_FREE_TIMERS_COUNT  1000
 
 #define NGR_EVENT_NONE      0
 #define NGR_EVENT_READABLE  1
@@ -42,20 +51,18 @@ typedef unsigned char ngr_uint8_t;
 typedef struct ngr_event_s ngr_event_t;
 typedef struct ngr_event_timer_s ngr_event_timer_t;
 
-typedef void ngr_event_ioevent_handler(ngr_event_t *ev, int fd, void *data,
+typedef void ngr_event_io_event_handler(ngr_event_t *ev, int fd, void *data,
     int mask);
 typedef uint64_t ngr_event_timer_handler(ngr_event_t *ev, void *data);
-typedef void ngr_event_timer_destroy_handler(void *data);
+typedef void ngr_event_destroy_handler(void *data);
 
 
 typedef struct ngr_event_node_s {
     int mask;
-    ngr_event_ioevent_handler *rev_handler;
-    ngr_event_ioevent_handler *wev_handler;
+    int fd;
+    ngr_event_io_event_handler *rev_handler;
+    ngr_event_io_event_handler *wev_handler;
     void *data;
-    ngr_event_timer_t *timer;
-    ngr_uint8_t timer_set:1;
-    ngr_uint8_t timeout:1;
 } ngr_event_node_t;
 
 
@@ -67,8 +74,9 @@ typedef struct ngr_event_fired_s {
 
 struct ngr_event_timer_s {
     ngr_event_timer_handler *handler;
+    ngr_event_destroy_handler *destroy;
     void *data;
-    ngr_event_timer_destroy_handler *destroy;
+    ngr_event_timer_t *next; /* free next */
     struct rbnode timer;
 };
 
@@ -80,22 +88,24 @@ struct ngr_event_s {
     ngr_event_fired_t *fired;
     struct rbtree timer;
     struct rbnode sentinel;
+    ngr_event_timer_t *free_timers; /* cache timer nodes */
+    int free_timers_count;
     void *ctx;
     ngr_uint8_t stop:1;
 };
 
 
 ngr_event_t *ngr_event_new(int max_events);
-int ngr_event_create_ioevent(ngr_event_t *ev, int fd, int mask,
-    ngr_event_ioevent_handler *handler, void *data, uint64_t timeout);
-void ngr_event_del_ioevent(ngr_event_t *ev, int fd, int mask);
-ngr_event_timer_t *ngr_event_create_timer(ngr_event_t *ev, int64_t timeout,
+int ngr_event_create_io_event(ngr_event_t *ev, int fd, int mask,
+    ngr_event_io_event_handler *handler, void *data);
+void ngr_event_del_io_event(ngr_event_t *ev, int fd, int mask);
+int ngr_event_create_timer(ngr_event_t *ev, int64_t timeout,
     ngr_event_timer_handler *handler, void *data,
-    ngr_event_timer_destroy_handler *destroy);
+    ngr_event_destroy_handler *destroy);
 void ngr_event_del_timer(ngr_event_t *ev, ngr_event_timer_t *node);
 int ngr_event_process_events(ngr_event_t *ev, int dont_wait);
-void ngr_event_main_stop(ngr_event_t *ev);
-void ngr_event_main_loop(ngr_event_t *ev);
+void ngr_event_stop(ngr_event_t *ev);
+void ngr_event_loop(ngr_event_t *ev);
 char *ngr_event_lib_name();
 
 #endif

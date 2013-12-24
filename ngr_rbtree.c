@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
+
 #include "ngr_rbtree.h"
+
 
 void
 rbtree_node_init(struct rbnode *node)
@@ -350,3 +352,4 @@ rbtree_delete(struct rbtree *tree, struct rbnode *node)
 
     rbtree_black(temp);
 }
+

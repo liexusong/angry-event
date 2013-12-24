@@ -17,6 +17,6 @@ int main(int argc, char *argv[])
     }
 
     ngr_event_create_timer(ev, 1000, &timer_handler, NULL, NULL);
-    ngr_event_main_loop(ev);
+    ngr_event_loop(ev);
     return 0;
 }

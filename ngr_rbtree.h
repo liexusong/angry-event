@@ -27,11 +27,11 @@
 #define rbtree_copy_color(_n1, _n2) ((_n1)->color = (_n2)->color)
 
 struct rbnode {
-    struct rbnode *left;     /* left link */
-    struct rbnode *right;    /* right link */
-    struct rbnode *parent;   /* parent link */
+    struct rbnode *left;      /* left link */
+    struct rbnode *right;     /* right link */
+    struct rbnode *parent;    /* parent link */
     int64_t        key;       /* key for ordering */
-    void          *data;     /* opaque data */
+    void          *data;      /* opaque data */
     uint8_t        color;     /* red | black */
 };
 
